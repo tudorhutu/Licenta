@@ -10,8 +10,8 @@ from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import preprocessing
 import pathlib
-img_height = 200
-img_width = 200
+img_height = 224
+img_width = 224
 
 def augmentation_zoom_and_rotation():
     data_augmentation = keras.Sequential(

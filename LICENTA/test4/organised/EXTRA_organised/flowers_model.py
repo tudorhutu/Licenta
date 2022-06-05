@@ -8,10 +8,9 @@ from data_augmentation import *
 from dataset_loading import *
 from PIL import Image
 from tensorflow import keras
-from tensorflow.keras import layers
+from tensorflow.keras import layers,optimizers
 from tensorflow.keras.models import Sequential
 import visualkeras
-
 import pathlib
 
 batch_size = 16
@@ -22,32 +21,32 @@ train_ds = train_ds.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
 val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
 
 input_shape=(200,200,3)
-plt.figure(figsize=(10, 10))
-for images, _ in train_ds.take(1):
-  for i in range(9):
-    augmented_images = augmentation_zoom_and_rotation()(images)
-    ax = plt.subplot(3, 3, i + 1)
-    plt.imshow(augmented_images[0].numpy().astype("uint8"))
-    plt.axis("off")
-plt.show()
+# plt.figure(figsize=(10, 10))
+# for images, _ in train_ds.take(1):
+#   for i in range(9):
+#     augmented_images = augmentation_zoom_and_rotation()(images)
+#     ax = plt.subplot(3, 3, i + 1)
+#     plt.imshow(augmented_images[0].numpy().astype("uint8"))
+#     plt.axis("off")
+# plt.show()
 
-plt.figure(figsize=(10, 10))
-for images, _ in train_ds.take(1):
-  for i in range(9):
-    augmented_images = augmentation_color()(images)
-    ax = plt.subplot(3, 3, i + 1)
-    plt.imshow(augmented_images[0].numpy().astype("uint8"))
-    plt.axis("off")
-plt.show()
+# plt.figure(figsize=(10, 10))
+# for images, _ in train_ds.take(1):
+#   for i in range(9):
+#     augmented_images = augmentation_color()(images)
+#     ax = plt.subplot(3, 3, i + 1)
+#     plt.imshow(augmented_images[0].numpy().astype("uint8"))
+#     plt.axis("off")
+# plt.show()
 
-plt.figure(figsize=(10, 10))
-for images, _ in train_ds.take(1):
-  for i in range(9):
-    augmented_images = augmentation_translation()(images)
-    ax = plt.subplot(3, 3, i + 1)
-    plt.imshow(augmented_images[0].numpy().astype("uint8"))
-    plt.axis("off")
-plt.show()
+# plt.figure(figsize=(10, 10))
+# for images, _ in train_ds.take(1):
+#   for i in range(9):
+#     augmented_images = augmentation_translation()(images)
+#     ax = plt.subplot(3, 3, i + 1)
+#     plt.imshow(augmented_images[0].numpy().astype("uint8"))
+#     plt.axis("off")
+# plt.show()
 
 model = Sequential([
   augmentation_zoom_and_rotation(),
@@ -55,19 +54,24 @@ model = Sequential([
   augmentation_color(),
   augmentation_translation(),
   layers.Rescaling(1./255),
-  layers.Conv2D(16, 3, padding='same', activation='relu',input_shape=input_shape),
-  layers.AveragePooling2D(),
-  layers.Conv2D(32, 3, padding='same', activation='relu'),
-  layers.AveragePooling2D(),
-  layers.Conv2D(64, 3, padding='same', activation='relu'),
-  layers.AveragePooling2D(),
-  layers.Conv2D(128, 3, padding='same', activation='relu'),
-  layers.AveragePooling2D(),
-  layers.Dropout(0.4),
+  layers.Conv2D(16, 5, padding='same', activation='elu'),
+  layers.MaxPooling2D(),
+  layers.Conv2D(16, 3, padding='same', activation='elu'),
+  layers.Conv2D(16, 3, padding='same', activation='elu'),
+  layers.MaxPooling2D(),
+  layers.Conv2D(32, 3, padding='same', activation='elu'),
+  layers.Conv2D(32, 3, padding='same', activation='elu'),
+  layers.MaxPooling2D(),
+  layers.Conv2D(64, 3, padding='same', activation='elu'),
+  layers.MaxPooling2D(),
+  layers.Conv2D(128, 3, padding='same', activation='elu'),
+  layers.MaxPooling2D(),
+  layers.Dropout(0.2),
   layers.Flatten(),
-  layers.Dense(128, activation='relu'),
+  layers.Dense(128, activation='elu'),
   layers.Dense(num_classes)
 ])
+
 
 def fit_model():
   model.compile(optimizer='adam',
@@ -110,5 +114,5 @@ def fit_model():
   model.save("./mega_model_saved_2", save_format='h5')
   visualkeras.layered_view(model, to_file='output.png')
 
-# if __name__ == "main":
-fit_model()
+if __name__ == "main":
+  fit_model()

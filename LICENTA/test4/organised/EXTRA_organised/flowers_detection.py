@@ -17,8 +17,8 @@ data_dir = pathlib.Path(data_dir)
 #monkey_data_dir='C:\\users\\Tudor\\Downloads\\monkeys'
 
 batch_size = 16
-img_height = 200
-img_width = 200
+img_height = 224
+img_width = 224
 
 train_ds = tf.keras.utils.image_dataset_from_directory(
   data_dir,
@@ -58,16 +58,16 @@ class_names = train_ds.class_names
 
 # #
 
-# model = tf.keras.models.load_model("./mega_model_saved")
-# # sunflower_url = "https://cache.desktopnexus.com/thumbseg/2352/2352605-bigthumbnail.jpg"
-# # sunflower_path = tf.keras.utils.get_file('bouquet', origin=sunflower_url)
-# path_2="C:\\Users\\Tudor\\Desktop\\rosesandtulips.jpg"
+model = tf.keras.models.load_model("./mega_model_saved")
+# sunflower_url = "https://cache.desktopnexus.com/thumbseg/2352/2352605-bigthumbnail.jpg"
+# sunflower_path = tf.keras.utils.get_file('bouquet', origin=sunflower_url)
+path_2="C:\\Users\\Tudor\\Desktop\\rosesandtulips.jpg"
 
-# img = tf.keras.utils.load_img(
-#     path_2, target_size=(img_height, img_width)
-# )
-# img_array3 = tf.keras.utils.img_to_array(img)
-# img_array3 = tf.expand_dims(img_array3, 0) # Create a batch
+img = tf.keras.utils.load_img(
+    path_2, target_size=(img_height, img_width)
+)
+img_array3 = tf.keras.utils.img_to_array(img)
+img_array3 = tf.expand_dims(img_array3, 0) # Create a batch
 
 
 def pretdict(path_to_predict):
