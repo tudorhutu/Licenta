@@ -5,7 +5,7 @@ import PIL
 import tensorflow as tf
 from data_augmentation import *
 from dataset_loading import *
-from flowers_detection import *
+from detection import *
 from PIL import Image
 from tensorflow import keras
 from tensorflow.keras import layers

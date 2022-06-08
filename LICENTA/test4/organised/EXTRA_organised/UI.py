@@ -21,8 +21,8 @@ from PyQt5.QtWidgets import QMessageBox, QFileDialog
 from PyQt5.QtWidgets import *
 import sys
 import os
-from flowers_detection import *
-from flowers_model import *
+from detection import *
+from model import *
 from scraper import *
 selected_folder = ""
 search_term = ""
