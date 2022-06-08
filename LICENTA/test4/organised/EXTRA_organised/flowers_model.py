@@ -6,13 +6,16 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from data_augmentation import *
 from dataset_loading import *
+from UI import progressObserver
 from PIL import Image
 from tensorflow import keras
 from tensorflow.keras import layers,optimizers
 from tensorflow.keras.models import Sequential
+
 import visualkeras
 import pathlib
-
+epoch_progress=0
+progress = 0
 batch_size = 16
 
 AUTOTUNE = tf.data.AUTOTUNE
@@ -71,24 +74,43 @@ model = Sequential([
   layers.Dense(128, activation='elu'),
   layers.Dense(num_classes)
 ])
+epochs = 80
+observer =  progressObserver()
+
+class CustomCallback(keras.callbacks.Callback):
+  def on_epoch_begin(self, epoch, logs=None):
+    global epochs
+    self.epoch_step = 0
+    epoch_number = epoch+1
+    observer.update_value(float(epoch_number)/float(epochs)*100)
+
+  def on_batch_end(self, batch, logs=None):
+    self.epoch_step += 1
+    epoch_progress = self.epoch_step / self.params["steps"] 
+    observer.update_value(epoch_progress * 100)
+    
+
 
 
 def fit_model():
   model.compile(optimizer='adam',
                 loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-                metrics=['accuracy'])
-
+                metrics=['accuracy'],
+               )
+  
   model.summary()
 
-  epochs = 80
+  global epochs 
+
   history = model.fit(
     train_ds,
     validation_data=val_ds,
     epochs=epochs,
     workers=8,
-    use_multiprocessing=True
+    use_multiprocessing=True,
+    callbacks=[CustomCallback()]
   )
-
+  print(history)
   acc = history.history['accuracy']
   val_acc = history.history['val_accuracy']
 
@@ -97,21 +119,21 @@ def fit_model():
 
   epochs_range = range(epochs)
 
-  plt.figure(figsize=(8, 8))
-  plt.subplot(1, 2, 1)
-  plt.plot(epochs_range, acc, label='Training Accuracy')
-  plt.plot(epochs_range, val_acc, label='Validation Accuracy')
-  plt.legend(loc='lower right')
-  plt.title('Training and Validation Accuracy')
+  # plt.figure(figsize=(8, 8))
+  # plt.subplot(1, 2, 1)
+  # plt.plot(epochs_range, acc, label='Training Accuracy')
+  # plt.plot(epochs_range, val_acc, label='Validation Accuracy')
+  # plt.legend(loc='lower right')
+  # plt.title('Training and Validation Accuracy')
 
-  plt.subplot(1, 2, 2)
-  plt.plot(epochs_range, loss, label='Training Loss')
-  plt.plot(epochs_range, val_loss, label='Validation Loss')
-  plt.legend(loc='upper right')
-  plt.title('Training and Validation Loss')
-  plt.show()
+  # plt.subplot(1, 2, 2)
+  # plt.plot(epochs_range, loss, label='Training Loss')
+  # plt.plot(epochs_range, val_loss, label='Validation Loss')
+  # plt.legend(loc='upper right')
+  # plt.title('Training and Validation Loss')
+  # plt.show()
 
-  model.save("./mega_model_saved_2", save_format='h5')
+  model.save("./mega_model_saved_3", save_format='h5')
   visualkeras.layered_view(model, to_file='output.png')
 
 if __name__ == "main":

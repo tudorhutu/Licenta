@@ -79,6 +79,9 @@ def pretdict(path_to_predict):
     image_array = tf.expand_dims(image_array, 0)
     predictions = model.predict(image_array)
     score = tf.nn.softmax(predictions[0])
+    print(class_names)
+    print(predictions)
+    print(score)
     final_class = class_names[np.argmax(score)]
     final_score = 100 * np.max(score)
     return final_class

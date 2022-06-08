@@ -12,26 +12,35 @@ from asyncio.windows_events import NULL
 from glob import glob
 from html import entities
 from re import sub
+from tkinter.tix import Tree
 from unittest.main import MAIN_EXAMPLES
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QDesktopServices
-from PyQt5.QtCore import QObject, QThread, pyqtSignal,QUrl
+from PyQt5.QtCore import QObject, QThread, pyqtSignal, QUrl, Qt
 from PyQt5.QtWidgets import QMessageBox, QFileDialog
+from PyQt5.QtWidgets import *
 import sys
 import os
 from flowers_detection import *
 from flowers_model import *
 from scraper import *
 selected_folder = ""
-search_term=""
-image_to_download=""
+search_term = ""
+image_to_download = ""
 current_file_path = os.path.realpath(__file__ + '/..')
-classsified_photo_folder = os.path.join(current_file_path,"classified")
+classsified_photo_folder = os.path.join(current_file_path, "classified")
+for sub_dir in os.listdir(data_dir):
+    newpath = os.path.join(classsified_photo_folder, sub_dir)
+    if not os.path.exists(newpath):
+        os.mkdir(newpath)
 if not os.path.exists(classsified_photo_folder):
     os.mkdir(classsified_photo_folder)
+
+
 class Worker(QObject):
     finished = pyqtSignal()
     progress = pyqtSignal(int)
+    progress2 = pyqtSignal(int)
 
     def run(self):
         photo_dict = dict()
@@ -40,52 +49,79 @@ class Worker(QObject):
         j = 0
 
         for sub_dir in os.listdir(data_dir):
-            newpath = os.path.join(classsified_photo_folder,sub_dir)
+            newpath = os.path.join(classsified_photo_folder, sub_dir)
             if not os.path.exists(newpath):
                 os.mkdir(newpath)
         for sub_dir in os.listdir(selected_folder):
-            i+=1
+            i += 1
         for sub_dir in os.listdir(selected_folder):
-            j+=1
+            j += 1
             self.progress.emit(100 * float(j)/float(i))
             # print(pretdict(os.path.join(selected_folder, sub_dir)))
             predict_key = pretdict(os.path.join(selected_folder, sub_dir))
             if predict_key not in photo_dict.keys():
-                photo_dict[predict_key]= []
-            photo_dict[predict_key].append(os.path.join(selected_folder, sub_dir))  
+                photo_dict[predict_key] = []
+            photo_dict[predict_key].append(
+                os.path.join(selected_folder, sub_dir))
         for key in photo_dict.keys():
-            path_to_move = os.path.join(classsified_photo_folder,key)
+            path_to_move = os.path.join(classsified_photo_folder, key)
             for photo in photo_dict[key]:
                 photo_name = os.path.basename(photo)
-                shutil.copy(photo, os.path.join(path_to_move,photo_name))
+                shutil.copy(photo, os.path.join(path_to_move, photo_name))
         self.finished.emit()
+
+
 class Worker2(QObject):
     finished = pyqtSignal()
     progress = pyqtSignal(int)
+
     def run_2(self):
         global search_term
         imagescrape(search_term)
         length_equalizer()
-        search_term=""
+        search_term = ""
         self.finished.emit()
+
+class progressObserver(object):
+
+    def __init__(self):
+        self._observers = []
+    def update_value(self,value):
+        self.notify(value)
+    def notify(self,value):
+        for observer in self._observers:
+            observer.update_value(value)
+    def add_observer(self,observer):
+        self._observers.append(observer)
+
+
 
 class Worker3(QObject):
     finished = pyqtSignal()
     progress = pyqtSignal(int)
+
+    def update_value(self,value):
+        # global epoch_progress
+        self.progress.emit(value)
+
+
     def run_3(self):
+        global epoch_progress, progress, epochs
         fit_model()
         self.finished.emit()
+
 
 class Worker4(QObject):
     finished = pyqtSignal()
     progress = pyqtSignal(int)
+
     def run_4(self):
         global image_to_download
         downloaded_path = tf.keras.utils.get_file(origin=image_to_download)
         predict_key = pretdict(downloaded_path)
-        path_to_move = os.path.join(classsified_photo_folder,predict_key)
+        path_to_move = os.path.join(classsified_photo_folder, predict_key)
         photo_name = os.path.basename(downloaded_path)
-        shutil.move(downloaded_path, os.path.join(path_to_move,photo_name))
+        shutil.move(downloaded_path, os.path.join(path_to_move, photo_name))
         self.finished.emit()
 
 
@@ -96,7 +132,7 @@ class Ui_MainWindow(object):
         dialog = QFileDialog()
         folder_path = dialog.getExistingDirectory(None, "Select Folder")
         selected_folder = folder_path
-
+#organise photo folder
     def runLongTask(self):
         # Step 2: Create a QThread object
         self.thread = QThread()
@@ -112,22 +148,28 @@ class Ui_MainWindow(object):
         self.worker.progress.connect(self.onCountChanged)
         # Step 6: Start the thread
         self.thread.start()
-
+        self.progress.setFormat("Predicting photos...")
         self.pushButton_2.setEnabled(False)
         self.thread.finished.connect(
             lambda: self.pushButton_2.setEnabled(True)
         )
+        self.thread.finished.connect(
+            lambda: self.progress.setValue(0)
+        )
 
+        self.thread.finished.connect(
+            lambda: self.progress.setFormat("")
+        )
     def update_list(self):
         for sub_dir in os.listdir(data_dir):
-            self.entries.append(sub_dir)  
+            self.entries.append(sub_dir)
         model = QtGui.QStandardItemModel()
         self.listView.setModel(model)
 
         for i in self.entries:
             item = QtGui.QStandardItem(i)
             model.appendRow(item)
-
+#scraper
     def runLongTask_2(self):
         # Step 2: Create a QThread object
         self.thread2 = QThread()
@@ -148,16 +190,16 @@ class Ui_MainWindow(object):
         self.thread2.finished.connect(
             lambda: self.pushButton_5.setEnabled(True)
         )
-        self.thread2.finished.connect(self.update_list)
         self.thread2.finished.connect(
             lambda: self.pushButton_5.setText("Download new category")
         )
-
+#training 
     def runLongTask_3(self):
         # Step 2: Create a QThread object
         self.thread3 = QThread()
         # Step 3: Create a worker object
         self.worker = Worker3()
+        observer.add_observer(self.worker)
         # Step 4: Move worker to the thread
         self.worker.moveToThread(self.thread3)
         # Step 5: Connect signals and slots
@@ -165,18 +207,27 @@ class Ui_MainWindow(object):
         self.worker.finished.connect(self.thread3.quit)
         self.worker.finished.connect(self.worker.deleteLater)
         self.thread3.finished.connect(self.thread3.deleteLater)
+        self.worker.progress.connect(self.onCountChanged2)
         # Step 6: Start the thread
         self.thread3.start()
-
+        self.progress_2.setVisible(True)
+        self.label.setVisible(True)
         self.pushButton_4.setEnabled(False)
         self.pushButton_4.setText("Training...")
         self.thread3.finished.connect(
             lambda: self.pushButton_4.setEnabled(True)
         )
+        self.thread3.finished.connect(self.update_list)
         self.thread3.finished.connect(
             lambda: self.pushButton_4.setText("Re-train model")
         )
-
+        self.thread3.finished.connect(
+            lambda: self.progress_2.setVisible(False)
+        )
+        self.thread3.finished.connect(
+            lambda: self.label.setVisible(False)
+        )
+#download and organize
     def runLongTask_4(self):
         # Step 2: Create a QThread object
         self.thread4 = QThread()
@@ -198,9 +249,8 @@ class Ui_MainWindow(object):
             lambda: self.pushButton_3.setEnabled(True)
         )
         self.thread4.finished.connect(
-            lambda: self.pushButton_3.setText("Download and classify Image")
-        )      
-
+            lambda: self.pushButton_3.setText("Download and organize Image")
+        )
 
     def classify_images(self):
         global selected_folder
@@ -215,7 +265,7 @@ class Ui_MainWindow(object):
         else:
             for sub_dir in os.listdir(selected_folder):
                 nrfiles += 1
-                if(os.path.splitext(sub_dir)[-1] != ".png" and os.path.splitext(sub_dir)[-1] != ".jpg"):
+                if(os.path.splitext(sub_dir)[-1] != ".png" and os.path.splitext(sub_dir)[-1] != ".jpg" and os.path.splitext(sub_dir)[-1] != ".gif" and os.path.splitext(sub_dir)[-1] != ".jpeg"):
                     is_valid = False
             if nrfiles == 0:
                 is_valid = False
@@ -234,6 +284,13 @@ class Ui_MainWindow(object):
 
     def onCountChanged(self, value):
         self.progress.setValue(value)
+
+    def onCountChanged2(self, value):
+        self.progress_2.setValue(value)
+
+    def onCountChanged3(self, value):
+        global epochs
+        self.label.setText("epoch "+value+" / "+epochs+"epochs")
 
     entries = []
 
@@ -266,12 +323,12 @@ class Ui_MainWindow(object):
         sizePolicy.setHeightForWidth(
             self.lineEdit.sizePolicy().hasHeightForWidth())
         self.lineEdit.setSizePolicy(sizePolicy)
-        self.lineEdit.setPlaceholderText("Paste here the URL of the image you want to download") 
-        self.lineEdit.setText("")   
+        self.lineEdit.setPlaceholderText(
+            "Paste here the URL of the image you want to download")
+        self.lineEdit.setText("")
         self.lineEdit.setObjectName("lineEdit")
         self.gridLayout.addWidget(self.lineEdit, 2, 0, 1, 1)
 
-    
         self.line = QtWidgets.QFrame(self.gridLayoutWidget)
         self.line.setFrameShape(QtWidgets.QFrame.HLine)
         self.line.setFrameShadow(QtWidgets.QFrame.Sunken)
@@ -304,16 +361,16 @@ class Ui_MainWindow(object):
         sizePolicy.setHeightForWidth(
             self.lineEdit_2.sizePolicy().hasHeightForWidth())
         self.lineEdit_2.setSizePolicy(sizePolicy)
-        self.lineEdit_2.setText("")   
-        self.lineEdit_2.setPlaceholderText("Write the name of the new category(e.g.: dogs)") 
+        self.lineEdit_2.setText("")
+        self.lineEdit_2.setPlaceholderText(
+            "Write the name of the new category(e.g.: dogs)")
         self.lineEdit_2.setObjectName("lineEdit_2")
         self.gridLayout.addWidget(self.lineEdit_2, 2, 1, 1, 1)
-
 
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
 
-        #new category button
+        # new category button
         self.pushButton_5 = QtWidgets.QPushButton(self.gridLayoutWidget)
         self.pushButton_5.setObjectName("pushButton_5")
         self.pushButton_5.clicked.connect(self.download_new_category)
@@ -325,7 +382,7 @@ class Ui_MainWindow(object):
         self.line_3.setObjectName("line_3")
         self.horizontalLayout.addWidget(self.line_3)
 
-        #re-train model button
+        # re-train model button
         self.pushButton_4 = QtWidgets.QPushButton(self.gridLayoutWidget)
         self.pushButton_4.setObjectName("pushButton_4")
         self.pushButton_4.clicked.connect(self.re_train_model)
@@ -333,23 +390,49 @@ class Ui_MainWindow(object):
 
         self.gridLayout.addLayout(self.horizontalLayout, 3, 1, 1, 1)
 
-
         self.progress = QtWidgets.QProgressBar(self.centralwidget)
         self.progress.setObjectName("progress_bar")
         self.progress.setGeometry(0, 0, 300, 25)
+        self.progress.setTextVisible(True)
+        self.progress.setFormat("Predicting photos...")
+        self.progress.setAlignment(Qt.AlignCenter)
         self.progress.setMaximum(100)
         self.gridLayout.addWidget(self.progress, 4, 0, 1, 0)
 
+        # progress for training
+        self.progress_2 = QtWidgets.QProgressBar(self.centralwidget)
+        self.progress_2.setObjectName("progress_bar_2")
+        self.progress_2.setGeometry(0, 0, 300, 25)
+        self.progress_2.setTextVisible(True)
+        self.progress_2.setFormat("Current epoch progress...")
+        self.progress_2.setAlignment(Qt.AlignCenter)
+        self.progress_2.setMaximum(100)
+        self.gridLayout.addWidget(self.progress_2, 5, 0, 1, 0)
+        self.progress_2.setVisible(False)
+
+        # progress for training 2
+        self.label = QtWidgets.QLabel(self.centralwidget)
+        self.label.setObjectName("Please wait, the model is training...")
+        self.label.setText("Please wait, the model is training...")
+        self.label.setAlignment(Qt.AlignCenter)
+        self.gridLayout.addWidget(self.label,6,0,1,0)
+        self.label.setVisible(False)
+
+        # remove category button
+        self.pushButton_7 = QtWidgets.QPushButton(self.gridLayoutWidget)
+        self.pushButton_7.setObjectName("pushButton_7")
+        self.pushButton_7.clicked.connect(self.remove_category)
+        self.gridLayout.addWidget(self.pushButton_7, 7, 0, 2, 2)
 
         self.listView = QtWidgets.QListView(self.centralwidget)
         self.listView.setGeometry(QtCore.QRect(10, 220, 621, 171))
         self.listView.setObjectName("listView")
-        
+
         for sub_dir in os.listdir(data_dir):
-            self.entries.append(sub_dir)  
+            self.entries.append(sub_dir)
         model = QtGui.QStandardItemModel()
         self.listView.setModel(model)
-
+        self.listView.setEditTriggers(QAbstractItemView.NoEditTriggers)
         for i in self.entries:
             item = QtGui.QStandardItem(i)
             model.appendRow(item)
@@ -372,12 +455,15 @@ class Ui_MainWindow(object):
         MainWindow.setFixedSize(640, 420)
         MainWindow.setWindowIcon(QtGui.QIcon('logo.png'))
         self.pushButton.setText(_translate("MainWindow", "Select Folder"))
-        self.pushButton_3.setText(_translate("MainWindow", "Download and classify Image"))
-        self.pushButton_2.setText(_translate("MainWindow", "Classify"))
+        self.pushButton_3.setText(_translate(
+            "MainWindow", "Download and organize Image"))
+        self.pushButton_2.setText(_translate("MainWindow", "Organize"))
         self.pushButton_5.setText(_translate(
             "MainWindow", "Download new category"))
         self.pushButton_6.setText(_translate(
-            "MainWindow", "Open classified folder"))
+            "MainWindow", "Open organized folder"))
+        self.pushButton_7.setText(_translate(
+            "MainWindow", "Remove selected class"))
         self.pushButton_4.setText(_translate("MainWindow", "Re-train model"))
         self.actionLocal_folder.setText(
             _translate("MainWindow", "Local folder..."))
@@ -387,9 +473,27 @@ class Ui_MainWindow(object):
         dirPath = classsified_photo_folder
         QDesktopServices.openUrl(QUrl.fromLocalFile(dirPath))
 
+    def remove_category(self):
+        class_to_remove = ""
+        for index in self.listView.selectedIndexes():
+            item = self.listView.model().itemFromIndex(index)
+            class_to_remove = item.text()
+        if class_to_remove == "":
+            msg = QMessageBox()
+            msg.setWindowTitle("Warning!")
+            msg.setText("No class selected")
+            msg.setIcon(QMessageBox.Warning)
+            x = msg.exec_()
+        else: 
+            self.listView.model().removeRow(self.entries.index(class_to_remove))
+            for sub_dir in os.listdir(data_dir):
+                if sub_dir == class_to_remove:
+                    shutil.rmtree(os.path.join(data_dir, sub_dir))
+                    shutil.rmtree(os.path.join(classsified_photo_folder, sub_dir))
+
     def download_new_category(self):
         global search_term
-        if self.lineEdit_2.text()=="":
+        if self.lineEdit_2.text() == "":
             msg = QMessageBox()
             msg.setWindowTitle("Warning!")
             msg.setText("You must enter a category before downloading")
@@ -399,9 +503,9 @@ class Ui_MainWindow(object):
             exists = False
             search_term = self.lineEdit_2.text()
             for sub_dir in os.listdir(data_dir):
-                if(search_term==sub_dir):
-                    exists=True
-            if(exists==True):
+                if(search_term == sub_dir):
+                    exists = True
+            if(exists == True):
                 msg = QMessageBox()
                 msg.setWindowTitle("Warning!")
                 msg.setText("Category already exists!")
@@ -409,29 +513,41 @@ class Ui_MainWindow(object):
                 x = msg.exec_()
             else:
                 Ui_MainWindow.runLongTask_2(self)
-    
+
     def re_train_model(self):
-        if len(class_names)==len(self.entries):
-            msg = QMessageBox()
-            msg.setWindowTitle("Warning!")
-            msg.setText("You need a new category to re-train!")
-            msg.setIcon(QMessageBox.Warning)
-            x = msg.exec_()
-        else:
-            Ui_MainWindow.runLongTask_3(self)
-    
+        downloaded_classes = 0
+        for sub_dir in os.listdir(data_dir):
+            downloaded_classes += 1
+        # if downloaded_classes==len(self.entries):
+        #     msg = QMessageBox()
+        #     msg.setWindowTitle("Warning!")
+        #     msg.setText("You need a new category to re-train!")
+        #     msg.setIcon(QMessageBox.Warning)
+        #     x = msg.exec_()
+        # else:
+        Ui_MainWindow.runLongTask_3(self)
+
     def download_and_classify(self):
         global image_to_download
-        if self.lineEdit.text()=="":
+        image_to_download = self.lineEdit.text()
+        if self.lineEdit.text() == "":
             msg = QMessageBox()
             msg.setWindowTitle("Warning!")
             msg.setText("You must enter an URL before downloading")
             msg.setIcon(QMessageBox.Warning)
             x = msg.exec_()
+        try:
+            tf.keras.utils.get_file(origin=image_to_download)
+        except Exception:
+            msg = QMessageBox()
+            msg.setWindowTitle("Warning!")
+            msg.setText("Invalid image!")
+            msg.setIcon(QMessageBox.Warning)
+            x = msg.exec_()
+            return()
         else:
             image_to_download = self.lineEdit.text()
             Ui_MainWindow.runLongTask_4(self)
-    
 
 
 if __name__ == "__main__":
